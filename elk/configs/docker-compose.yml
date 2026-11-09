@@ -1,0 +1,56 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - ../elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - elk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.12.0
+    container_name: logstash
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./logstash/pipeline.yml:/usr/share/logstash/pipeline.yml:ro
+    ports:
+      #- "5044:5044" # для Beats
+      - "5001:5000/tcp" # для TCP input
+      #- "5001:5000/udp"
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.12.0
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ../../demo/logs:/var/log/spring-boot:ro
+    depends_on:
+      - logstash
+    networks:
+      - elk
+
+networks:
+  elk:
